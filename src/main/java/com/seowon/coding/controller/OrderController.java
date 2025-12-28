@@ -1,5 +1,7 @@
 package com.seowon.coding.controller;
 
+import com.seowon.coding.domain.dto.OrderRequestDto;
+import com.seowon.coding.domain.dto.ProductDto;
 import com.seowon.coding.domain.model.Order;
 import com.seowon.coding.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -8,19 +10,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 public class OrderController {
-    
+
     private final OrderService orderService;
-    
+
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
-    
+
     @GetMapping("/{id}")
     public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
         return orderService.getOrderById(id)
@@ -37,7 +40,7 @@ public class OrderController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
         try {
@@ -47,7 +50,7 @@ public class OrderController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * TODO #2: 주문을 생성하는 API 구현
      * 구현목록:
@@ -55,7 +58,7 @@ public class OrderController {
      * 2. orderService.placeOrder 호출
      * 3. 주문 생성시 HTTP 201 CREATED 반환
      * 4. 필요한 DTO 생성
-     * 
+     * <p>
      * Request body 예시:
      * {
      *   "customerName": "John Doe",
@@ -66,5 +69,18 @@ public class OrderController {
      *   ]
      * }
      */
-    //
+    @PostMapping()
+    public ResponseEntity<Void> createOrder(@RequestBody OrderRequestDto orderRequestDto) {
+        String customerName = orderRequestDto.getCustomerName();
+        String customerEmail = orderRequestDto.getCustomerEmail();
+        List<Long> productIds = orderRequestDto.getProducts().stream()
+                .map(ProductDto::getProductId).toList();
+        List<Integer> quantity = orderRequestDto.getProducts().stream()
+                .map(ProductDto::getQuantity).toList();
+
+        orderService.placeOrder(customerName,customerEmail,productIds,quantity);
+        return ResponseEntity.status(201).build();
+    }
+
+
 }

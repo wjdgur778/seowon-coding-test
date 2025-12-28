@@ -4,6 +4,7 @@ package com.seowon.coding.domain.model;
 import lombok.Builder;
 
 import java.util.List;
+import java.util.Set;
 
 class PermissionChecker {
 
@@ -19,18 +20,24 @@ class PermissionChecker {
             List<UserGroup> groups,
             List<Policy> policies
     ) {
-        for (User user : users) {
-            if (user.id.equals(userId)) {
-                for (String groupId : user.groupIds) {
+        //시간이 부족해 아이디어만 적어보겠습니다.
+        //              List<User> users,
+        //            List<UserGroup> groups,
+        //            List<Policy> policies
+        //   이렇게 리스트로 되어있는 것들을 hashset으로 변환해서 contain을 활용하면 좀더 빠를것같습니다.
+            for (User user : users) {
+                if (user.id.equals(userId)) {
                     for (UserGroup group : groups) {
-                        if (group.id.equals(groupId)) {
-                            for (String policyId : group.policyIds) {
-                                for (Policy policy : policies) {
-                                    if (policy.id.equals(policyId)) {
-                                        for (Statement statement : policy.statements) {
-                                            if (statement.actions.contains(targetAction) &&
-                                                statement.resources.contains(targetResource)) {
-                                                return true;
+                         for (String groupId : user.groupIds) {
+                            if (group.id.equals(groupId)) {
+                                for (String policyId : group.policyIds) {
+                                    for (Policy policy : policies) {
+                                        if (policy.id.equals(policyId)) {
+                                            for (Statement statement : policy.statements) {
+                                                if (statement.actions.contains(targetAction) &&
+                                                        statement.resources.contains(targetResource)) {
+                                                    return true;
+                                                }
                                             }
                                         }
                                     }
@@ -40,10 +47,10 @@ class PermissionChecker {
                     }
                 }
             }
-        }
-        return false;
+
+            return false;
+
     }
-}
 
 class User {
     String id;

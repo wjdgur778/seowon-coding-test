@@ -22,21 +22,21 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional
 public class OrderService {
-    
+
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final ProcessingStatusRepository processingStatusRepository;
-    
+
     @Transactional(readOnly = true)
     public List<Order> getAllOrders() {
         return orderRepository.findAll();
     }
-    
+
     @Transactional(readOnly = true)
     public Optional<Order> getOrderById(Long id) {
         return orderRepository.findById(id);
     }
-    
+
 
     public Order updateOrder(Long id, Order order) {
         if (!orderRepository.existsById(id)) {
@@ -45,7 +45,7 @@ public class OrderService {
         order.setId(id);
         return orderRepository.save(order);
     }
-    
+
     public void deleteOrder(Long id) {
         if (!orderRepository.existsById(id)) {
             throw new RuntimeException("Order not found with id: " + id);
@@ -53,18 +53,48 @@ public class OrderService {
         orderRepository.deleteById(id);
     }
 
-
-
+    //더티 채킹 및 롤백을 위한 transactional
+    @Transactional
     public Order placeOrder(String customerName, String customerEmail, List<Long> productIds, List<Integer> quantities) {
         // TODO #3: 구현 항목
-        // * 주어진 고객 정보로 새 Order를 생성
-        // * 지정된 Product를 주문에 추가
-        // * order 의 상태를 PENDING 으로 변경
-        // * orderDate 를 현재시간으로 설정
-        // * order 를 저장
+        // * 주어진 고객 정보로 새 Order를 생성 v
+        // * 지정된 Product를 주문에 추가 v
+        // * order 의 상태를 PENDING 으로 변경 v
+        // * orderDate 를 현재시간으로 설정 v
+        // * order 를 저장 v
         // * 각 Product 의 재고를 수정
         // * placeOrder 메소드의 시그니처는 변경하지 않은 채 구현하세요.
-        return null;
+
+        Order order = Order.builder()
+                .customerName(customerName)
+                .customerEmail(customerEmail)
+                .status(Order.OrderStatus.PENDING)
+                .orderDate(LocalDateTime.now())
+                .build();
+
+        for (int i = 0; i < productIds.size(); i++) {
+            Long p_id = productIds.get(i);
+            Integer p_qu = quantities.get(i);
+            Product p = productRepository.findById(p_id)
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + p_id));
+
+            if(!p.isInStock()){
+                throw new IllegalArgumentException("there is no stock in : " + p_id);
+            }
+            p.decreaseStock(p_qu);
+
+            OrderItem item = OrderItem.builder()
+                    .order(order)
+                    .product(p)
+                    .quantity(p_qu)
+                    .build();
+
+            order.addItem(item);
+        }
+
+        Order result = orderRepository.save(order);
+
+        return result;
     }
 
     /**
@@ -141,6 +171,12 @@ public class OrderService {
         processingStatusRepository.save(ps);
 
         int processed = 0;
+        /**
+         * # 1
+         *   아래의 for문의 가독성이 떨어지는 것 같습니다.
+         *   orderIds의 null 여부를 먼저 파악한 후에
+         *   for(Long orderId : orderIds){} 로 작성하면 보다 가독성이 좋을 것 같습니다.
+         */
         for (Long orderId : (orderIds == null ? List.<Long>of() : orderIds)) {
             try {
                 // 오래 걸리는 작업 이라는 가정 시뮬레이션 (예: 외부 시스템 연동, 대용량 계산 등)
@@ -154,6 +190,13 @@ public class OrderService {
         ps.markCompleted();
         processingStatusRepository.save(ps);
     }
+    /**
+     * # 2
+     *  중간 진행률 로직을 "Propagation.REQUIRES_NEW" 를 통해 전파시켰습니다.
+     *  이는 만약, 핵심 비즈니스 로직 (배송 처리)에 문제가 생겨 롤백이 되어도 진행률 저장이 될 것입니다.
+     *  이 때문에 사용자는 비정상적인 진행률을 보게 될 수도 있습니다.
+     *  해당 트랜젝션을 원래의 트랜잭션 범위에 포함시켜 잘못된 진행률이 저장되지 않도록 해야 합니다.
+     */
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateProgressRequiresNew(String jobId, int processed, int total) {

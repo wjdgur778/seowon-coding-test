@@ -64,7 +64,12 @@ public class OrderService {
         // * order 를 저장 v
         // * 각 Product 의 재고를 수정
         // * placeOrder 메소드의 시그니처는 변경하지 않은 채 구현하세요.
-
+        /**
+         * todo 개선점 및 회고
+         *  1. product을 findAllById()를 통해서 한번의 조회로 product를 가져오기
+         *  2. 한번에 가져올 때는 원하는 데이터의 수가 맞는지 확인할 필요가 있다.
+         *  3. product의 제고를 줄일 때 비관락 혹은 redis의 락 등 동시성 제어에 대한 문제를 고려해야한다.
+         */
         Order order = Order.builder()
                 .customerName(customerName)
                 .customerEmail(customerEmail)
@@ -106,6 +111,7 @@ public class OrderService {
                                String customerEmail,
                                List<OrderProduct> orderProducts,
                                String couponCode) {
+        // todo) Order 안으로 넣어 validation으로 분리하기
         if (customerName == null || customerEmail == null) {
             throw new IllegalArgumentException("customer info required");
         }
@@ -113,6 +119,7 @@ public class OrderService {
             throw new IllegalArgumentException("orderReqs invalid");
         }
 
+        // todo) Order객체 안에 createOrder 메서드를 생성해서 buildter를 대신하도록 한다.
         Order order = Order.builder()
                 .customerName(customerName)
                 .customerEmail(customerEmail)
@@ -122,7 +129,7 @@ public class OrderService {
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
-
+        //
         BigDecimal subtotal = BigDecimal.ZERO;
         for (OrderProduct req : orderProducts) {
             Long pid = req.getProductId();
@@ -162,6 +169,14 @@ public class OrderService {
      * - 시나리오: 일괄 배송 처리 중 진행률을 저장하여 다른 사용자가 조회 가능해야 함.
      * - 리뷰 포인트: proxy 및 transaction 분리, 예외 전파/롤백 범위, 가독성 등
      * - 상식적인 수준에서 요구사항(기획)을 가정하며 최대한 상세히 작성하세요.
+     *
+     * todo : 개선점 및 회고
+     *  1. transcational의 전파에만 신경쓰고 어떤 점이 문제일지 생각을 해보다보니
+     *     내부 호출 시에 transactional이 적용되지 않는다는 것을 알고있음에도 알아채지 못했다.
+     *  2. 그리고 혹여나 transactional 전파가 이루어 졌다고 했다 하더라도
+     *     중간 진행률 저장으로의 " propagation = Propagation.REQUIRES_NEW " 해당 옵션은 올바른 옵션이다.
+     *     만약 트랜잭션이 부모 트랜잭션에 포함되어있었다면,
+     *     핵심 비즈니스 로직이 거의 다 완료된 시점에서 진행률 로직이 실패하면 그동한 진행된 핵심로직이 롤백되어버린다.
      */
     @Transactional
     public void bulkShipOrdersParent(String jobId, List<Long> orderIds) {

@@ -69,6 +69,10 @@ public class OrderController {
      *   ]
      * }
      */
+    /**
+     * todo 개선점 및 회고
+     *  - dto안의 products list를 따로 받아 한번의 반복으로 productIds, quantity를 받아야 했다.
+     */
     @PostMapping()
     public ResponseEntity<Void> createOrder(@RequestBody OrderRequestDto orderRequestDto) {
         String customerName = orderRequestDto.getCustomerName();

@@ -1,5 +1,6 @@
 package com.seowon.coding.domain.model;
 
+import com.seowon.coding.policy.PriceAdjustmentPolicy;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -53,5 +54,10 @@ public class Product {
             throw new IllegalArgumentException("Quantity must be positive");
         }
         stockQuantity += quantity;
+    }
+
+    //비즈니스 규칙을 엔티티 내부로 이동
+    public void updatePrice(PriceAdjustmentPolicy policy) {
+        this.price = policy.apply(this.price);
     }
 }

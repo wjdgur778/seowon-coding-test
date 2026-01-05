@@ -89,7 +89,6 @@ public class ProductService {
      *
      * todo 개선점 및 회고
      *  1. 가격 변경 정책을 따로 분리할 수 있다.
-     *      1.1 정책을 record로 분리하여
      *  2. product 안에서 변경 정책을 받아 가격을 변경할 수 있게 한다.
      *  3. product의 price는 @Positive로 양수만 받을 수 있게 되어있다
      *  4. findAllById를 통해 하나의 쿼리로 product를 가져올 수 있게 하되
@@ -100,6 +99,13 @@ public class ProductService {
      *                    product(도메인 객체) 안에 로직을 넣는 것(객체 지향 설계)
      *                                        vs
      *                             jpql을 통한 직접적인 update(성능 향상)
+*       6. 가격을 변경하는 정책을 고려해야하기 때문에 bulk update를 하고자 한다면
+     *     어플리케이션 레밸에서 상품을 조회 후 정책을 적용한 가격을 계산 후에 적용해야한다.
+     *     이는 bulk update를 고려하는데에 중요한 지점이 될 것이다.(복잡성 향상)
+     *  7. 따라서 해당 기능을 구현할때에는 변경해야할 상품의 갯수를 고려하고, 성능이 우선적인지를 판단해야할 것이다.
+     *      7.1 상품의 갯수가 수십만개를 넘는다면 사실 spring batch를 통해 따로 배치작업을 수행하는 것이 보다 적절
+     *      7.2 요구사항으로 인해 사용자의 요청 내에서 해당 작업을 수행해야 한다면, 엔티티 내부로 update로직을 옮기고
+     *          hibernate.jdbc.batch_size=50 와 같이 배치 사이즈를 두어 네트워크 trip을 줄이는 방향을 선택할 것이다.
      */
     @Transactional
     public void applyBulkPriceChange(List<Long> productIds, double percentage, boolean includeTax) {
@@ -114,12 +120,12 @@ public class ProductService {
         PriceAdjustmentPolicy policy = new PriceAdjustmentPolicy(includeTax,percentage,1.1);
 
         //개별 업데이트의 문제가 있음
-        // bulk update로 변경해야함.
+        // bulk update 고려
         for(Product p : list){
             p.updatePrice(policy);
         }
-
-        productRepository.saveAll(list);
+//        내부적인 merge 작업이 이루어지므로 dirty check 만으로 업데이트 쿼리를 보내도록 하자.
+//        productRepository.saveAll(list);
     }
 
 }
